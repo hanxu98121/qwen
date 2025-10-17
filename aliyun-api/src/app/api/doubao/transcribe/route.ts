@@ -16,6 +16,14 @@ export async function POST(request: NextRequest) {
       })
     }
 
+    // 只处理POST请求
+    if (request.method !== 'POST') {
+      return NextResponse.json(
+        { success: false, error: 'Method not allowed' },
+        { status: 405 }
+      )
+    }
+
     // 解析表单数据
     const formData = await request.formData()
     const appKey = formData.get('appKey') as string || formData.get('appkey') as string

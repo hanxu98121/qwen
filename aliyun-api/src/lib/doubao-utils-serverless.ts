@@ -3,6 +3,7 @@
 import fs from 'fs/promises'
 import path from 'path'
 import { AudioUtils } from './doubao-protocol'
+import { FFmpegConverter } from './ffmpeg-converter'
 
 export interface AudioInfo {
   format: string
@@ -167,7 +168,24 @@ export class DoubaoUtilsServerless {
       }
 
       const arrayBuffer = await response.arrayBuffer()
-      const buffer = Buffer.from(arrayBuffer)
+      let buffer = Buffer.from(arrayBuffer)
+
+      // 使用FFmpeg转换音频格式
+      try {
+        // 尝试设置FFmpeg（可能失败）
+        FFmpegConverter.setupFFmpeg();
+      } catch (error) {
+        console.log('FFmpeg not available, using original audio');
+      }
+
+      try {
+        // 转换为豆包兼容格式
+        buffer = await FFmpegConverter.ensureDoubaoFormat(buffer);
+        console.log(`Audio converted successfully (${buffer.length} bytes)`);
+      } catch (conversionError) {
+        console.warn('Audio conversion failed, using original:', conversionError);
+        // 如果转换失败，使用原始音频
+      }
 
       console.log(`Downloaded ${buffer.length} bytes from URL`)
       return buffer
@@ -186,7 +204,24 @@ export class DoubaoUtilsServerless {
 
       // 直接从File转换为Buffer，不保存到文件系统
       const arrayBuffer = await audioFile.arrayBuffer()
-      const buffer = Buffer.from(arrayBuffer)
+      let buffer = Buffer.from(arrayBuffer)
+
+      // 使用FFmpeg转换音频格式
+      try {
+        // 尝试设置FFmpeg（可能失败）
+        FFmpegConverter.setupFFmpeg();
+      } catch (error) {
+        console.log('FFmpeg not available, using original audio');
+      }
+
+      try {
+        // 转换为豆包兼容格式
+        buffer = await FFmpegConverter.ensureDoubaoFormat(buffer);
+        console.log(`Audio converted successfully (${buffer.length} bytes)`);
+      } catch (conversionError) {
+        console.warn('Audio conversion failed, using original:', conversionError);
+        // 如果转换失败，使用原始音频
+      }
 
       console.log(`Processed ${buffer.length} bytes from uploaded file`)
       return buffer
