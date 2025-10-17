@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/png" href="https://cdn-avatars.huggingface.co/v1/production/uploads/620760a26e3b7210c2ff1943/-s1gyJfvbE1RgO5iBeNOi.png" sizes="200x200" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Qwen3-ASR-Studio</title>
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#10b981" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      :root {
+        --color-brand-primary: #10b981;
+        --color-brand-secondary: #059669;
+        --color-base-100: #f3f4f6;
+        --color-base-200: #e5e7eb;
+        --color-base-300: #d1d5db;
+        --color-content-100: #111827;
+        --color-content-200: #6b7280;
+      }
+      .dark {
+        --color-brand-primary: #10b981;
+        --color-brand-secondary: #059669;
+        --color-base-100: #1f2937;
+        --color-base-200: #374151;
+        --color-base-300: #4b5563;
+        --color-content-100: #f3f4f6;
+        --color-content-200: #d1d5db;
+      }
+      @keyframes pulse-dot {
+        0%, 100% {
+          transform: scale(0.8);
+          opacity: 0.7;
+        }
+        50% {
+          transform: scale(1.2);
+          opacity: 1;
+        }
+      }
+      .animate-pulsing-dot {
+        animation: pulse-dot 1.4s ease-in-out infinite;
+      }
+    </style>
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            colors: {
+              'brand-primary': 'var(--color-brand-primary)',
+              'brand-secondary': 'var(--color-brand-secondary)',
+              'base-100': 'var(--color-base-100)',
+              'base-200': 'var(--color-base-200)',
+              'base-300': 'var(--color-base-300)',
+              'content-100': 'var(--color-content-100)',
+              'content-200': 'var(--color-content-200)',
+            },
+          },
+        },
+      }
+    </script>
+    <script type="importmap">
+{
+  "imports": {
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.1.1/",
+    "react/": "https://aistudiocdn.com/react@^19.1.1/",
+    "react": "https://aistudiocdn.com/react@^19.1.1",
+    "@gradio/client": "https://cdn.jsdelivr.net/npm/@gradio/client@1.17.1/+esm",
+    "react-dom": "https://aistudiocdn.com/react-dom@^19.1.1",
+    "wavesurfer.js": "https://unpkg.com/wavesurfer.js@7/dist/wavesurfer.esm.js",
+    "wavesurfer.js/plugins/record": "https://unpkg.com/wavesurfer.js@7/dist/plugins/record.esm.js",
+    "wavesurfer.js/plugins/regions": "https://unpkg.com/wavesurfer.js@7/dist/plugins/regions.esm.js",
+    "wavesurfer.js/": "https://aistudiocdn.com/wavesurfer.js@^7.10.1/"
+  }
+}
+</script>
+  </head>
+  <body class="bg-base-100">
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
