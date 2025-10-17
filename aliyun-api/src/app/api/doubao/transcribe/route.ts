@@ -156,11 +156,5 @@ export async function POST(request: NextRequest) {
         }
       }
     )
-
-  } finally {
-    // 清理临时文件
-    if (tempFilePath) {
-      await DoubaoUtils.cleanupTempFile(tempFilePath)
-    }
   }
 }

@@ -1,12 +1,8 @@
 import { NextRequest } from 'next/server'
 import { createDoubaoClient, DoubaoConfig } from '@/lib/doubao-client'
-import { DoubaoUtils } from '@/lib/doubao-utils'
-import fs from 'fs/promises'
-import path from 'path'
+import { DoubaoUtilsServerless } from '@/lib/doubao-utils-serverless'
 
 export async function POST(request: NextRequest) {
-  let tempFilePath: string | null = null
-
   try {
     // 处理CORS预检请求
     if (request.method === 'OPTIONS') {
@@ -84,7 +80,7 @@ export async function POST(request: NextRequest) {
       access_key: accessKey.trim()
     }
 
-    const validation = DoubaoUtils.validateConfig(config)
+    const validation = DoubaoUtilsServerless.validateConfig(config)
     if (!validation.isValid) {
       return new Response(JSON.stringify({
         success: false,
@@ -111,21 +107,14 @@ export async function POST(request: NextRequest) {
     let audioData: Buffer
 
     if (audioFile) {
-      // 处理本地音频文件
-      const tempDir = await DoubaoUtils.ensureTempDir()
-      tempFilePath = path.join(tempDir, `stream_${Date.now()}_${audioFile.name}`)
-
-      // 保存上传的文件
-      const buffer = Buffer.from(await audioFile.arrayBuffer())
-      await fs.writeFile(tempFilePath, buffer)
-
-      console.log('Processing audio file for streaming:', tempFilePath)
-      audioData = await DoubaoUtils.processAudioFile(tempFilePath)
+      // 处理上传的音频文件 - 直接在内存中处理
+      console.log('Processing uploaded file for streaming:', audioFile.name)
+      audioData = await DoubaoUtilsServerless.processUploadedFile(audioFile)
 
     } else {
-      // 处理远程音频URL - 先下载
+      // 处理远程音频URL - 直接下载到内存
       console.log('Downloading audio from URL:', audioUrl)
-      audioData = await DoubaoUtils.downloadAudioFromUrl(audioUrl)
+      audioData = await DoubaoUtilsServerless.downloadAudioFromUrl(audioUrl)
     }
 
     // 创建一个自定义的ReadableStream用于SSE
@@ -166,7 +155,7 @@ export async function POST(request: NextRequest) {
               console.log('Received streaming response:', response.toDict())
 
               // 提取文本结果
-              const text = DoubaoUtils.extractTextFromResponse(response.toDict())
+              const text = DoubaoUtilsServerless.extractTextFromResponse(response.toDict())
 
               if (text) {
                 // 如果文本有变化，发送更新
@@ -186,8 +175,8 @@ export async function POST(request: NextRequest) {
               if (response.isLastPackage) {
                 console.log('Streaming transcription complete')
 
-                const finalLanguage = DoubaoUtils.extractLanguageFromResponse(response.toDict())
-                const finalConfidence = DoubaoUtils.extractConfidenceFromResponse(response.toDict())
+                const finalLanguage = DoubaoUtilsServerless.extractLanguageFromResponse(response.toDict())
+                const finalConfidence = DoubaoUtilsServerless.extractConfidenceFromResponse(response.toDict())
 
                 const completeMessage = {
                   type: 'complete',
@@ -210,15 +199,11 @@ export async function POST(request: NextRequest) {
 
           const errorMessage = {
             type: 'error',
-            error: DoubaoUtils.formatError(error),
+            error: DoubaoUtilsServerless.formatError(error),
             done: true
           }
           controller.enqueue(encoder.encode(`data: ${JSON.stringify(errorMessage)}\n\n`))
         } finally {
-          // 清理临时文件
-          if (tempFilePath) {
-            await DoubaoUtils.cleanupTempFile(tempFilePath)
-          }
           controller.close()
         }
       }
@@ -236,14 +221,9 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Doubao streaming setup error:', error)
 
-    // 清理临时文件
-    if (tempFilePath) {
-      await DoubaoUtils.cleanupTempFile(tempFilePath)
-    }
-
     const errorMessage = {
       type: 'error',
-      error: DoubaoUtils.formatError(error),
+      error: DoubaoUtilsServerless.formatError(error),
       done: true
     }
 
