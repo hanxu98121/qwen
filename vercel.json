@@ -1,8 +1,13 @@
 {
-  "buildCommand": "cd qwen3-asr-studio && npm run build",
-  "outputDirectory": "qwen3-asr-studio/dist",
-  "installCommand": "cd qwen3-asr-studio && npm install",
-  "framework": "vite",
+  "builds": [
+    {
+      "src": "qwen3-asr-studio/package.json",
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "dist"
+      }
+    }
+  ],
   "rewrites": [
     {
       "source": "/(.*)",
