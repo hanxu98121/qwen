@@ -1,32 +1,8 @@
 {
   "version": 2,
-  "builds": [
-    {
-      "src": "package.json",
-      "use": "@vercel/next"
-    }
-  ],
-  "routes": [
-    {
-      "src": "/api/(.*)",
-      "dest": "/api/$1"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/$1"
-    }
-  ],
-  "env": {
-    "NEXTAUTH_SECRET": "@nextauth_secret",
-    "DOUBAO_APP_KEY": "@doubao_app_key",
-    "DOUBAO_ACCESS_KEY": "@doubao_access_key",
-    "QWEN_API_KEY": "@qwen_api_key",
-    "DATABASE_URL": "@database_url"
-  },
+  "buildCommand": "npm run build",
+  "outputDirectory": ".next",
   "functions": {
-    "src/pages/api/**/*.ts": {
-      "maxDuration": 30
-    },
     "src/app/api/**/*.ts": {
       "maxDuration": 30
     }
