@@ -50,7 +50,7 @@ declare global {
     }
 }
 
-const DEFAULT_MODELSCOPE_API_URL = 'https://c0rpr74ughd0-deploy.space.z.ai/api/asr-inference';
+const DEFAULT_MODELSCOPE_API_URL = process.env.VITE_API_URL ? `${process.env.VITE_API_URL}/api/asr-inference` : 'https://c0rpr74ughd0-deploy.space.z.ai/api/asr-inference';
 
 export default function App() {
   const [audioFile, setAudioFile] = useState<File | null>(null);
