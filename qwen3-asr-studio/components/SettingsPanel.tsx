@@ -26,6 +26,10 @@ interface SettingsPanelProps {
   setModelScopeApiUrl: (url: string) => void;
   bailianApiKey: string;
   setBailianApiKey: (key: string) => void;
+  doubaoAppId: string;
+  setDoubaoAppId: (appId: string) => void;
+  doubaoApiKey: string;
+  setDoubaoApiKey: (apiKey: string) => void;
   onClearHistory: () => void;
   onRestoreDefaults: () => void;
   disabled?: boolean;
@@ -100,6 +104,10 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   setModelScopeApiUrl,
   bailianApiKey,
   setBailianApiKey,
+  doubaoAppId,
+  setDoubaoAppId,
+  doubaoApiKey,
+  setDoubaoApiKey,
   onClearHistory,
   onRestoreDefaults,
   disabled,
@@ -190,10 +198,29 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
              <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between">
               <label className="text-base font-medium">API 提供商</label>
               <div className="flex items-center gap-1 p-1 rounded-lg bg-base-100 border border-base-300">
+                <button onClick={() => setApiProvider(ApiProvider.DOUBAO)} className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${apiProvider === ApiProvider.DOUBAO ? 'bg-brand-primary text-white' : 'hover:bg-base-300'}`}>豆包</button>
                 <button onClick={() => setApiProvider(ApiProvider.MODELSCOPE)} className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${apiProvider === ApiProvider.MODELSCOPE ? 'bg-brand-primary text-white' : 'hover:bg-base-300'}`}>ModelScope</button>
                 <button onClick={() => setApiProvider(ApiProvider.BAILIAN)} className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${apiProvider === ApiProvider.BAILIAN ? 'bg-brand-primary text-white' : 'hover:bg-base-300'}`}>阿里云百炼</button>
               </div>
             </div>
+            {apiProvider === ApiProvider.DOUBAO && (
+              <>
+                <div>
+                  <label htmlFor="doubao-app-id-setting" className="text-base font-medium">
+                    App Key
+                    <p className="text-sm text-content-200 font-normal">从 <a href="https://console.volcengine.com/speech/app" target="_blank" rel="noopener noreferrer" className="text-brand-primary hover:underline">火山引擎控制台</a> 获取。</p>
+                  </label>
+                  <input id="doubao-app-id-setting" type="text" value={doubaoAppId} onChange={(e) => setDoubaoAppId(e.target.value)} disabled={disabled} placeholder="sk-xxxxxxxxxxxxxxxx" className="mt-2 w-full px-3 py-2 text-sm rounded-md shadow-sm bg-base-100 border border-base-300 text-content-100 placeholder-content-200 focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-brand-primary disabled:opacity-60" />
+                </div>
+                <div>
+                  <label htmlFor="doubao-api-key-setting" className="text-base font-medium">
+                    Access Key
+                    <p className="text-sm text-content-200 font-normal">从 <a href="https://console.volcengine.com/speech/app" target="_blank" rel="noopener noreferrer" className="text-brand-primary hover:underline">火山引擎控制台</a> 获取。</p>
+                  </label>
+                  <input id="doubao-api-key-setting" type="password" value={doubaoApiKey} onChange={(e) => setDoubaoApiKey(e.target.value)} disabled={disabled} placeholder="sk-xxxxxxxxxxxxxxxx" className="mt-2 w-full px-3 py-2 text-sm rounded-md shadow-sm bg-base-100 border border-base-300 text-content-100 placeholder-content-200 focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-brand-primary disabled:opacity-60" />
+                </div>
+              </>
+            )}
             {apiProvider === ApiProvider.BAILIAN && (
               <div>
                 <label htmlFor="bailian-api-key-setting" className="text-base font-medium">

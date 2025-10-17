@@ -22,18 +22,22 @@ interface PipViewProps {
   apiProvider: ApiProvider;
   modelScopeApiUrl: string;
   bailianApiKey: string;
+  doubaoAppId: string;
+  doubaoApiKey: string;
 }
 
-export const PipView: React.FC<PipViewProps> = ({ 
-  onTranscriptionResult, 
-  theme, 
-  context, 
-  language, 
-  enableItn, 
-  selectedDeviceId, 
+export const PipView: React.FC<PipViewProps> = ({
+  onTranscriptionResult,
+  theme,
+  context,
+  language,
+  enableItn,
+  selectedDeviceId,
   apiProvider,
   modelScopeApiUrl,
-  bailianApiKey 
+  bailianApiKey,
+  doubaoAppId,
+  doubaoApiKey
 }) => {
     type Status = 'idle' | 'recording' | 'processing' | 'success' | 'error';
     const [status, setStatus] = useState<Status>('idle');
@@ -54,7 +58,7 @@ export const PipView: React.FC<PipViewProps> = ({
         setMessage('正在识别...');
         try {
             const controller = new AbortController();
-            const config = { provider: apiProvider, modelScopeApiUrl, bailianApiKey };
+            const config = { provider: apiProvider, modelScopeApiUrl, bailianApiKey, doubaoAppId, doubaoApiKey };
             const result = await transcribeAudio(audioFile, context, language, enableItn, config, () => {}, controller.signal);
             
             if (result.transcription) {
@@ -75,7 +79,7 @@ export const PipView: React.FC<PipViewProps> = ({
             setMessage(msg);
             setStatus('error');
         }
-    }, [context, language, enableItn, onTranscriptionResult, apiProvider, modelScopeApiUrl, bailianApiKey]);
+    }, [context, language, enableItn, onTranscriptionResult, apiProvider, modelScopeApiUrl, bailianApiKey, doubaoAppId, doubaoApiKey]);
     
     const stopRecording = useCallback(() => {
         if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {

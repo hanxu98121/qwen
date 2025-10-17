@@ -16,6 +16,7 @@ async function getClient() {
 const MAX_RETRIES = 3;
 const INITIAL_BACKOFF_MS = 2000;
 const BAILIAN_API_URL = 'https://r0vrc7kjd4q0-deploy.space.z.ai/api/proxy/transcribe';
+const DOUBAO_API_URL = 'http://localhost:3003/api/doubao/transcribe';
 
 
 const fileToBase64 = (file: File): Promise<string> => {
@@ -195,10 +196,91 @@ const transcribeWithModelScope = async (
   throw new Error('Transcription failed after all retries.');
 };
 
+const transcribeWithDoubao = async (
+  audioFile: File,
+  context: string,
+  language: Language,
+  enableItn: boolean,
+  appId: string,
+  apiKey: string,
+  onProgress: (message: string) => void,
+  signal: AbortSignal
+): Promise<{ transcription: string; detectedLanguage: string }> => {
+  if (!appId || !apiKey) {
+    throw new Error('豆包 App Key 或 Access Key 未设置。请在设置中配置。');
+  }
+
+  const formData = new FormData();
+  formData.append('audio', audioFile);
+  formData.append('appKey', appId);
+  formData.append('accessKey', apiKey);
+  if (context) formData.append('context', context);
+  formData.append('enable_itn', String(enableItn));
+  if (language !== Language.AUTO) {
+    formData.append('language', language);
+  }
+
+  for (let i = 0; i < MAX_RETRIES; i++) {
+    try {
+      const attempt = i + 1;
+      onProgress(attempt > 1 ? `正在进行第 ${attempt} 次尝试...` : '正在识别，请稍候...');
+
+      onProgress('正在发送到豆包 API...');
+      const response = await fetch(DOUBAO_API_URL, {
+        method: 'POST',
+        body: formData,
+        signal,
+      });
+
+      if (!response.ok) {
+        let errorDetails = `豆包 API 请求失败，状态码: ${response.status}`;
+        try {
+          const errorJson = await response.json();
+          errorDetails = errorJson.details || errorJson.error || errorDetails;
+        } catch (e) {
+          // ignore if response is not json
+        }
+        throw new Error(errorDetails);
+      }
+
+      const result = await response.json();
+
+      if (result.success && result.data) {
+        onProgress('识别成功！');
+        return {
+          transcription: result.data.text || '',
+          detectedLanguage: result.data.language || '',
+        };
+      } else if (result.error) {
+        throw new Error(result.details || result.error);
+      } else {
+        throw new Error('来自豆包 API 的响应格式无效');
+      }
+    } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        onProgress('识别已取消。');
+        throw error;
+      }
+      if (i === MAX_RETRIES - 1) {
+        console.error(`Transcription failed after ${MAX_RETRIES} attempts.`, error);
+        onProgress('识别失败。');
+        throw error;
+      }
+      const delay = INITIAL_BACKOFF_MS * Math.pow(2, i);
+      console.log(`Transcription attempt ${i + 1} failed. Retrying in ${delay / 1000}s...`, error);
+      onProgress(`识别出错，将在 ${delay / 1000} 秒后重试...`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+  throw new Error('Transcription failed after all retries.');
+};
+
 export interface TranscriptionConfig {
   provider: ApiProvider;
   modelScopeApiUrl: string;
   bailianApiKey: string;
+  doubaoAppId: string;
+  doubaoApiKey: string;
 }
 
 export const transcribeAudio = async (
@@ -212,6 +294,8 @@ export const transcribeAudio = async (
 ): Promise<{ transcription: string; detectedLanguage: string }> => {
   if (config.provider === ApiProvider.BAILIAN) {
     return transcribeWithBailian(audioFile, context, language, enableItn, config.bailianApiKey, onProgress, signal);
+  } else if (config.provider === ApiProvider.DOUBAO) {
+    return transcribeWithDoubao(audioFile, context, language, enableItn, config.doubaoAppId, config.doubaoApiKey, onProgress, signal);
   } else {
     return transcribeWithModelScope(audioFile, context, language, enableItn, config.modelScopeApiUrl, onProgress, signal);
   }

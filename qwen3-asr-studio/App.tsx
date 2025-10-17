@@ -98,9 +98,11 @@ export default function App() {
   const [selectedDeviceId, setSelectedDeviceId] = useState<string>(() => localStorage.getItem('selectedDeviceId') || 'default');
   
   // API Provider state
-  const [apiProvider, setApiProvider] = useState<ApiProvider>(() => (localStorage.getItem('apiProvider') as ApiProvider | null) || ApiProvider.MODELSCOPE);
+  const [apiProvider, setApiProvider] = useState<ApiProvider>(() => (localStorage.getItem('apiProvider') as ApiProvider | null) || ApiProvider.DOUBAO);
   const [modelScopeApiUrl, setModelScopeApiUrl] = useState<string>(() => localStorage.getItem('modelScopeApiUrl') || DEFAULT_MODELSCOPE_API_URL);
   const [bailianApiKey, setBailianApiKey] = useState<string>(() => localStorage.getItem('bailianApiKey') || '');
+  const [doubaoAppId, setDoubaoAppId] = useState<string>(() => localStorage.getItem('doubaoAppId') || 'sk-your-app-id-here');
+  const [doubaoApiKey, setDoubaoApiKey] = useState<string>(() => localStorage.getItem('doubaoApiKey') || 'sk-your-access-key-here');
 
 
   // PWA install state
@@ -244,6 +246,8 @@ export default function App() {
   useEffect(() => { localStorage.setItem('apiProvider', apiProvider); }, [apiProvider]);
   useEffect(() => { localStorage.setItem('modelScopeApiUrl', modelScopeApiUrl); }, [modelScopeApiUrl]);
   useEffect(() => { localStorage.setItem('bailianApiKey', bailianApiKey); }, [bailianApiKey]);
+  useEffect(() => { localStorage.setItem('doubaoAppId', doubaoAppId); }, [doubaoAppId]);
+  useEffect(() => { localStorage.setItem('doubaoApiKey', doubaoApiKey); }, [doubaoApiKey]);
 
   useEffect(() => {
     if (copied) {
@@ -438,12 +442,12 @@ export default function App() {
           onProgress('正在压缩音频（如果需要）...');
           const fileToTranscribe = await compressAudio(file, compressionLevel);
           const result = await transcribeAudio(
-            fileToTranscribe, 
-            context, 
-            language, 
-            enableItn, 
-            { provider: apiProvider, modelScopeApiUrl, bailianApiKey }, 
-            onProgress, 
+            fileToTranscribe,
+            context,
+            language,
+            enableItn,
+            { provider: apiProvider, modelScopeApiUrl, bailianApiKey, doubaoAppId, doubaoApiKey },
+            onProgress,
             controller.signal
           );
           finalTranscription = result.transcription;
@@ -642,10 +646,12 @@ export default function App() {
     setTheme('light');
     setCompressionLevel(CompressionLevel.ORIGINAL);
     setSelectedDeviceId('default');
-    setApiProvider(ApiProvider.MODELSCOPE);
+    setApiProvider(ApiProvider.DOUBAO);
     setModelScopeApiUrl(DEFAULT_MODELSCOPE_API_URL);
     setBailianApiKey('');
-    
+    setDoubaoAppId('sk-your-app-id-here');
+    setDoubaoApiKey('sk-your-access-key-here');
+
     setIsSettingsOpen(false);
     setNotification({ message: '已恢复默认设置', type: 'success' });
   }, []);
@@ -844,6 +850,10 @@ export default function App() {
         setModelScopeApiUrl={setModelScopeApiUrl}
         bailianApiKey={bailianApiKey}
         setBailianApiKey={setBailianApiKey}
+        doubaoAppId={doubaoAppId}
+        setDoubaoAppId={setDoubaoAppId}
+        doubaoApiKey={doubaoApiKey}
+        setDoubaoApiKey={setDoubaoApiKey}
         onClearHistory={handleClearHistory}
         onRestoreDefaults={handleRestoreDefaults}
         canInstall={!!installPrompt}
@@ -861,6 +871,8 @@ export default function App() {
           apiProvider={apiProvider}
           modelScopeApiUrl={modelScopeApiUrl}
           bailianApiKey={bailianApiKey}
+          doubaoAppId={doubaoAppId}
+          doubaoApiKey={doubaoApiKey}
         />,
         pipContainer
       )}

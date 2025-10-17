@@ -14,6 +14,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Upload, FileText, Key, Loader2, Globe, Code, Zap, Text } from 'lucide-react'
 import APIDocumentation from '@/components/APIDocumentation'
 import StreamingTranscription from '@/components/StreamingTranscription'
+import APISelector, { APIProvider } from '@/components/APISelector'
+import DoubaoStreamingTranscription from '@/components/DoubaoStreamingTranscription'
 
 interface TranscriptionResult {
   text: string
@@ -23,7 +25,10 @@ interface TranscriptionResult {
 
 export default function Home() {
   const [baseUrl, setBaseUrl] = useState('')
+  const [apiProvider, setApiProvider] = useState<APIProvider>('doubao') // 默认选择豆包
   const [apiKey, setApiKey] = useState('')
+  const [appKey, setAppKey] = useState('') // 预填豆包App Key
+  const [accessKey, setAccessKey] = useState('') // 预填豆包Access Key
   const [audioFile, setAudioFile] = useState<File | null>(null)
   const [audioUrl, setAudioUrl] = useState('')
   const [context, setContext] = useState('')
@@ -35,6 +40,7 @@ export default function Home() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [progress, setProgress] = useState(0)
+  const [isStreaming, setIsStreaming] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Set baseUrl on client side only
@@ -75,6 +81,7 @@ export default function Home() {
 
   const handleStreamingComplete = (finalResult: string, language?: string, confidence?: number) => {
     setStreamingText('')
+    setIsStreaming(false)
     setResult({
       text: finalResult,
       language,
@@ -85,12 +92,21 @@ export default function Home() {
   const handleStreamingError = (error: string) => {
     setError(error)
     setStreamingText('')
+    setIsStreaming(false)
   }
 
   const handleTranscribe = async () => {
-    if (!apiKey.trim()) {
-      setError('请输入 API Key')
-      return
+    // 验证认证信息
+    if (apiProvider === 'qwen') {
+      if (!apiKey.trim()) {
+        setError('请输入阿里云 API Key')
+        return
+      }
+    } else {
+      if (!appKey.trim() || !accessKey.trim()) {
+        setError('请输入豆包API的 app_key 和 access_key')
+        return
+      }
     }
 
     if (!audioFile && !audioUrl.trim()) {
@@ -104,15 +120,24 @@ export default function Home() {
     setProgress(0)
 
     try {
+      let apiUrl = ''
       const formData = new FormData()
-      formData.append('apiKey', apiKey.trim())
-      
+
+      if (apiProvider === 'qwen') {
+        apiUrl = '/api/transcribe'
+        formData.append('apiKey', apiKey.trim())
+      } else {
+        apiUrl = '/api/doubao/transcribe'
+        formData.append('appKey', appKey.trim())
+        formData.append('accessKey', accessKey.trim())
+      }
+
       if (audioFile) {
         formData.append('audio', audioFile)
       } else {
         formData.append('audioUrl', audioUrl.trim())
       }
-      
+
       if (context.trim()) {
         formData.append('context', context.trim())
       }
@@ -127,7 +152,7 @@ export default function Home() {
         setProgress(prev => Math.min(prev + 10, 90))
       }, 200)
 
-      const response = await fetch('/api/transcribe', {
+      const response = await fetch(apiUrl, {
         method: 'POST',
         body: formData,
       })
@@ -141,7 +166,12 @@ export default function Home() {
       }
 
       const data = await response.json()
-      setResult(data)
+
+      if (data.success) {
+        setResult(data.data)
+      } else {
+        throw new Error(data.error || '转录失败')
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : '转录失败')
     } finally {
@@ -168,15 +198,23 @@ export default function Home() {
     }
   }
 
+  const hasValidCredentials = () => {
+    if (apiProvider === 'qwen') {
+      return apiKey.trim() !== ''
+    } else {
+      return appKey.trim() !== '' && accessKey.trim() !== ''
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
       <div className="max-w-6xl mx-auto p-4">
         <div className="text-center py-8">
           <h1 className="text-4xl font-bold text-gray-900 mb-2">
-            通义千问录音文件识别 API 代理服务器
+            智能语音识别 API 服务器
           </h1>
           <p className="text-lg text-gray-600">
-            解决跨域问题的音频转录服务，提供完整的 API 文档和代理接口
+            支持阿里云通义千问和字节跳动豆包的音频转录服务，提供完整的 API 文档和代理接口
           </p>
         </div>
 
@@ -204,22 +242,66 @@ export default function Home() {
                   API 配置
                 </CardTitle>
                 <CardDescription>
-                  请输入您的阿里云百炼 API Key
+                  选择API提供商并配置相应的认证信息
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  <div>
-                    <Label htmlFor="apiKey">API Key</Label>
-                    <Input
-                      id="apiKey"
-                      type="password"
-                      placeholder="sk-xxxxxxxxxxxxxxxxxxxxxxxx"
-                      value={apiKey}
-                      onChange={(e) => setApiKey(e.target.value)}
-                      className="mt-1"
-                    />
-                  </div>
+                  {/* API Provider Selector */}
+                  <APISelector
+                    value={apiProvider}
+                    onChange={setApiProvider}
+                    disabled={loading || isStreaming}
+                  />
+
+                  {/* Dynamic Auth Fields */}
+                  {apiProvider === 'qwen' ? (
+                    <div>
+                      <Label htmlFor="apiKey">阿里云 API Key</Label>
+                      <Input
+                        id="apiKey"
+                        type="password"
+                        placeholder="sk-xxxxxxxxxxxxxxxxxxxxxxxx"
+                        value={apiKey}
+                        onChange={(e) => setApiKey(e.target.value)}
+                        className="mt-1"
+                        disabled={loading || isStreaming}
+                      />
+                      <p className="text-xs text-gray-500 mt-1">
+                        从阿里云百炼平台获取的API Key
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <div>
+                        <Label htmlFor="appKey">豆包 App Key</Label>
+                        <Input
+                          id="appKey"
+                          type="text"
+                          placeholder="请输入豆包应用的App Key"
+                          value={appKey}
+                          onChange={(e) => setAppKey(e.target.value)}
+                          className="mt-1"
+                          disabled={loading || isStreaming}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="accessKey">豆包 Access Key</Label>
+                        <Input
+                          id="accessKey"
+                          type="text"
+                          placeholder="请输入豆包应用的Access Key"
+                          value={accessKey}
+                          onChange={(e) => setAccessKey(e.target.value)}
+                          className="mt-1"
+                          disabled={loading || isStreaming}
+                        />
+                      </div>
+                      <p className="text-xs text-gray-500">
+                        从字节跳动控制台获取的应用认证信息
+                      </p>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -363,7 +445,7 @@ export default function Home() {
             <div className="flex justify-center gap-4">
               <Button
                 onClick={handleTranscribe}
-                disabled={loading || stream || (!apiKey.trim() || (!audioFile && !audioUrl.trim()))}
+                disabled={loading || isStreaming || stream || !hasValidCredentials() || (!audioFile && !audioUrl.trim())}
                 className="px-8 py-2"
               >
                 {loading ? (
@@ -376,9 +458,24 @@ export default function Home() {
                 )}
               </Button>
               
-              {stream && (
+              {stream && apiProvider === 'qwen' && (
                 <StreamingTranscription
                   apiKey={apiKey}
+                  audioFile={audioFile}
+                  audioUrl={audioUrl}
+                  context={context}
+                  enableItn={enableItn}
+                  language={language === 'auto' ? '' : language}
+                  onResult={handleStreamingResult}
+                  onComplete={handleStreamingComplete}
+                  onError={handleStreamingError}
+                />
+              )}
+
+              {stream && apiProvider === 'doubao' && (
+                <DoubaoStreamingTranscription
+                  appKey={appKey}
+                  accessKey={accessKey}
                   audioFile={audioFile}
                   audioUrl={audioUrl}
                   context={context}

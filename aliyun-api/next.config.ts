@@ -5,15 +5,32 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
+  // Vercel deployment optimizations
+  // Note: We don't use output: 'export' because we need API routes
+  images: {
+    unoptimized: true,
+  },
   // 禁用 Next.js 热重载，由 nodemon 处理重编译
   reactStrictMode: false,
-  webpack: (config, { dev }) => {
+  webpack: (config, { dev, isServer }) => {
     if (dev) {
       // 禁用 webpack 的热模块替换
       config.watchOptions = {
         ignored: ['**/*'], // 忽略所有文件变化
       };
     }
+
+    // Optimize for Vercel
+    if (!dev && !isServer) {
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        fs: false,
+        net: false,
+        tls: false,
+        crypto: false,
+      };
+    }
+
     return config;
   },
   eslint: {

@@ -2,6 +2,7 @@
 export enum ApiProvider {
   MODELSCOPE = 'modelscope',
   BAILIAN = 'bailian',
+  DOUBAO = 'doubao',
 }
 
 export enum Language {
