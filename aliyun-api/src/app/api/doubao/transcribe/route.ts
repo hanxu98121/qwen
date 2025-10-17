@@ -1,12 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createDoubaoClient, DoubaoConfig } from '@/lib/doubao-client'
-import { DoubaoUtils } from '@/lib/doubao-utils'
-import fs from 'fs/promises'
-import path from 'path'
+import { DoubaoUtilsServerless } from '@/lib/doubao-utils-serverless'
 
 export async function POST(request: NextRequest) {
-  let tempFilePath: string | null = null
-
   try {
     // 处理CORS预检请求
     if (request.method === 'OPTIONS') {
@@ -47,7 +43,7 @@ export async function POST(request: NextRequest) {
       access_key: accessKey.trim()
     }
 
-    const validation = DoubaoUtils.validateConfig(config)
+    const validation = DoubaoUtilsServerless.validateConfig(config)
     if (!validation.isValid) {
       return NextResponse.json(
         { success: false, error: validation.error },
@@ -64,21 +60,14 @@ export async function POST(request: NextRequest) {
     let audioData: Buffer
 
     if (audioFile) {
-      // 处理本地音频文件
-      const tempDir = await DoubaoUtils.ensureTempDir()
-      tempFilePath = path.join(tempDir, `upload_${Date.now()}_${audioFile.name}`)
-
-      // 保存上传的文件
-      const buffer = Buffer.from(await audioFile.arrayBuffer())
-      await fs.writeFile(tempFilePath, buffer)
-
-      console.log('Processing audio file:', tempFilePath)
-      audioData = await DoubaoUtils.processAudioFile(tempFilePath)
+      // 处理上传的音频文件 - 直接在内存中处理
+      console.log('Processing uploaded file:', audioFile.name)
+      audioData = await DoubaoUtilsServerless.processUploadedFile(audioFile)
 
     } else {
-      // 处理远程音频URL - 先下载
+      // 处理远程音频URL - 直接下载到内存
       console.log('Downloading audio from URL:', audioUrl)
-      audioData = await DoubaoUtils.downloadAudioFromUrl(audioUrl)
+      audioData = await DoubaoUtilsServerless.downloadAudioFromUrl(audioUrl)
     }
 
     // 创建豆包客户端
@@ -102,19 +91,19 @@ export async function POST(request: NextRequest) {
         console.log('Received response:', response.toDict())
 
         // 提取文本结果
-        const text = DoubaoUtils.extractTextFromResponse(response.toDict())
+        const text = DoubaoUtilsServerless.extractTextFromResponse(response.toDict())
         if (text) {
           finalText = text // 最后一个响应包含完整结果
         }
 
         // 提取语言信息
-        const language = DoubaoUtils.extractLanguageFromResponse(response.toDict())
+        const language = DoubaoUtilsServerless.extractLanguageFromResponse(response.toDict())
         if (language) {
           finalLanguage = language
         }
 
         // 提取置信度
-        const confidence = DoubaoUtils.extractConfidenceFromResponse(response.toDict())
+        const confidence = DoubaoUtilsServerless.extractConfidenceFromResponse(response.toDict())
         if (confidence !== undefined) {
           finalConfidence = confidence
         }
@@ -151,7 +140,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Doubao transcription error:', error)
 
-    const errorMessage = DoubaoUtils.formatError(error)
+    const errorMessage = DoubaoUtilsServerless.formatError(error)
 
     return NextResponse.json(
       {

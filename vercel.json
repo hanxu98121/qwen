@@ -1,0 +1,12 @@
+{
+  "buildCommand": "cd qwen3-asr-studio && npm run build",
+  "outputDirectory": "qwen3-asr-studio/dist",
+  "installCommand": "cd qwen3-asr-studio && npm install",
+  "framework": "vite",
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}
