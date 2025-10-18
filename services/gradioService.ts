@@ -16,7 +16,7 @@ async function getClient() {
 const MAX_RETRIES = 3;
 const INITIAL_BACKOFF_MS = 2000;
 const BAILIAN_API_URL = 'https://r0vrc7kjd4q0-deploy.space.z.ai/api/proxy/transcribe';
-const DOUBAO_API_URL = 'http://localhost:3003/api/doubao/transcribe';
+const DOUBAO_API_URL = 'https://qwendoubao.vercel.app/api/doubao/transcribe';
 
 
 const fileToBase64 = (file: File): Promise<string> => {

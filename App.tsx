@@ -101,8 +101,8 @@ export default function App() {
   const [apiProvider, setApiProvider] = useState<ApiProvider>(() => (localStorage.getItem('apiProvider') as ApiProvider | null) || ApiProvider.DOUBAO);
   const [modelScopeApiUrl, setModelScopeApiUrl] = useState<string>(() => localStorage.getItem('modelScopeApiUrl') || DEFAULT_MODELSCOPE_API_URL);
   const [bailianApiKey, setBailianApiKey] = useState<string>(() => localStorage.getItem('bailianApiKey') || '');
-  const [doubaoAppId, setDoubaoAppId] = useState<string>(() => localStorage.getItem('doubaoAppId') || 'sk-your-app-id-here');
-  const [doubaoApiKey, setDoubaoApiKey] = useState<string>(() => localStorage.getItem('doubaoApiKey') || 'sk-your-access-key-here');
+  const [doubaoAppId, setDoubaoAppId] = useState<string>(() => localStorage.getItem('doubaoAppId') || '9842958621');
+  const [doubaoApiKey, setDoubaoApiKey] = useState<string>(() => localStorage.getItem('doubaoApiKey') || 'Z_Etvqs0JcJ6lgutoWplH4iodjuqiHkl');
 
 
   // PWA install state
@@ -649,8 +649,8 @@ export default function App() {
     setApiProvider(ApiProvider.DOUBAO);
     setModelScopeApiUrl(DEFAULT_MODELSCOPE_API_URL);
     setBailianApiKey('');
-    setDoubaoAppId('sk-your-app-id-here');
-    setDoubaoApiKey('sk-your-access-key-here');
+    setDoubaoAppId('9842958621');
+    setDoubaoApiKey('Z_Etvqs0JcJ6lgutoWplH4iodjuqiHkl');
 
     setIsSettingsOpen(false);
     setNotification({ message: '已恢复默认设置', type: 'success' });
