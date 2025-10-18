@@ -11,11 +11,12 @@ import { Progress } from '@/components/ui/progress'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Switch } from '@/components/ui/switch'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Upload, FileText, Key, Loader2, Globe, Code, Zap, Text } from 'lucide-react'
+import { Upload, FileText, Key, Loader2, Globe, Code, Zap, Text, Mic } from 'lucide-react'
 import APIDocumentation from '@/components/APIDocumentation'
 import StreamingTranscription from '@/components/StreamingTranscription'
 import APISelector, { APIProvider } from '@/components/APISelector'
 import DoubaoStreamingTranscription from '@/components/DoubaoStreamingTranscription'
+import VoiceRecorder from '@/components/VoiceRecorder'
 
 interface TranscriptionResult {
   text: string
@@ -31,10 +32,12 @@ export default function Home() {
   const [accessKey, setAccessKey] = useState('') // 预填豆包Access Key
   const [audioFile, setAudioFile] = useState<File | null>(null)
   const [audioUrl, setAudioUrl] = useState('')
+  const [audioInputMethod, setAudioInputMethod] = useState<'file' | 'url' | 'record'>('file')
   const [context, setContext] = useState('')
   const [enableItn, setEnableItn] = useState(false)
   const [language, setLanguage] = useState('auto')  // 改为 'auto' 而不是空字符串
   const [stream, setStream] = useState(false)
+  const [autoTranscribe, setAutoTranscribe] = useState(false)
   const [streamingText, setStreamingText] = useState('')
   const [result, setResult] = useState<TranscriptionResult | null>(null)
   const [loading, setLoading] = useState(false)
@@ -43,10 +46,48 @@ export default function Home() {
   const [isStreaming, setIsStreaming] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  // Set baseUrl on client side only
+  // Set baseUrl and load saved credentials on client side only
   useEffect(() => {
-    setBaseUrl(window.location.origin)
+    if (typeof window !== 'undefined') {
+      setBaseUrl(window.location.origin)
+
+      // Load saved API credentials from localStorage
+      const savedProvider = localStorage.getItem('apiProvider') as APIProvider || 'doubao'
+      const savedApiKey = localStorage.getItem('apiKey') || ''
+      const savedAppKey = localStorage.getItem('appKey') || ''
+      const savedAccessKey = localStorage.getItem('accessKey') || ''
+
+      setApiProvider(savedProvider)
+      setApiKey(savedApiKey)
+      setAppKey(savedAppKey)
+      setAccessKey(savedAccessKey)
+    }
   }, [])
+
+  // Save API credentials to localStorage when they change
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('apiProvider', apiProvider)
+    }
+  }, [apiProvider])
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('apiKey', apiKey)
+    }
+  }, [apiKey])
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('appKey', appKey)
+    }
+  }, [appKey])
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('accessKey', accessKey)
+    }
+  }, [accessKey])
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
@@ -56,23 +97,42 @@ export default function Home() {
         setError('音频文件大小不能超过 10MB')
         return
       }
-      
+
       // Check file type
       const allowedTypes = [
         'audio/aac', 'audio/amr', 'video/avi', 'audio/aiff', 'audio/flac', 'video/x-flv',
         'audio/mp4', 'video/x-matroska', 'audio/mpeg', 'audio/ogg', 'audio/opus',
         'audio/wav', 'video/webm', 'audio/x-ms-wma', 'video/x-ms-wmv'
       ]
-      
+
       if (!allowedTypes.includes(file.type) && !file.name.match(/\.(aac|amr|avi|aiff|flac|flv|m4a|mkv|mp3|mp4|mpeg|ogg|opus|wav|webm|wma|wmv)$/i)) {
         setError('不支持的音频格式')
         return
       }
-      
+
       setAudioFile(file)
       setAudioUrl('')
       setError(null)
     }
+  }
+
+  const handleRecordingComplete = (file: File) => {
+    setAudioFile(file)
+    setAudioUrl('')
+    setError(null)
+    // Keep on record tab, don't switch to file tab
+    // setAudioInputMethod('file') // Removed this line to stay on record tab
+
+    // Auto start transcription if autoTranscribe is enabled
+    if (autoTranscribe && hasValidCredentials()) {
+      setTimeout(() => {
+        handleTranscribe()
+      }, 500) // Small delay to ensure file is properly set
+    }
+  }
+
+  const handleRecordingError = (error: string) => {
+    setError(error)
   }
 
   const handleStreamingResult = (text: string) => {
@@ -110,7 +170,7 @@ export default function Home() {
     }
 
     if (!audioFile && !audioUrl.trim()) {
-      setError('请选择音频文件或输入音频 URL')
+      setError('请选择音频文件、输入音频 URL 或录制音频')
       return
     }
 
@@ -195,6 +255,7 @@ export default function Home() {
       setAudioFile(file)
       setAudioUrl('')
       setError(null)
+      setAudioInputMethod('file')
     }
   }
 
@@ -313,131 +374,156 @@ export default function Home() {
                   音频输入
                 </CardTitle>
                 <CardDescription>
-                  支持本地音频文件上传或在线音频 URL，文件大小不超过 10MB，时长不超过 3 分钟
+                  支持本地文件上传、在线URL或直接录制音频，文件大小不超过 10MB，时长不超过 3 分钟
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  {/* File Upload */}
-                  <div>
-                    <Label>音频文件</Label>
-                    <div
-                      className="mt-1 border-2 border-dashed border-gray-300 rounded-lg p-6 text-center cursor-pointer hover:border-gray-400 transition-colors"
-                      onDragOver={handleDragOver}
-                      onDrop={handleDrop}
-                      onClick={() => fileInputRef.current?.click()}
-                    >
-                      <input
-                        ref={fileInputRef}
-                        type="file"
-                        accept="audio/*,.aac,.amr,.avi,.aiff,.flac,.flv,.m4a,.mkv,.mp3,.mp4,.mpeg,.ogg,.opus,.wav,.webm,.wma,.wmv"
-                        onChange={handleFileSelect}
-                        className="hidden"
-                      />
-                      <Upload className="w-12 h-12 text-gray-400 mx-auto mb-2" />
-                      <p className="text-sm text-gray-600">
-                        点击或拖拽音频文件到此处
-                      </p>
-                      <p className="text-xs text-gray-500 mt-1">
-                        支持：aac, amr, avi, aiff, flac, flv, m4a, mkv, mp3, mp4, mpeg, ogg, opus, wav, webm, wma, wmv
-                      </p>
-                      {audioFile && (
-                        <p className="text-sm text-green-600 mt-2">
-                          已选择：{audioFile.name}
-                        </p>
-                      )}
-                    </div>
-                  </div>
+                <Tabs value={audioInputMethod} onValueChange={(value: 'file' | 'url' | 'record') => setAudioInputMethod(value)} className="w-full">
+                  <TabsList className="grid w-full grid-cols-3">
+                    <TabsTrigger value="file" className="flex items-center gap-2">
+                      <Upload className="w-4 h-4" />
+                      文件上传
+                    </TabsTrigger>
+                    <TabsTrigger value="url" className="flex items-center gap-2">
+                      <Globe className="w-4 h-4" />
+                      在线URL
+                    </TabsTrigger>
+                    <TabsTrigger value="record" className="flex items-center gap-2">
+                      <Mic className="w-4 h-4" />
+                      语音录制
+                    </TabsTrigger>
+                  </TabsList>
 
-                  {/* Audio URL */}
-                  <div>
-                    <Label htmlFor="audioUrl">或输入音频 URL</Label>
-                    <Input
-                      id="audioUrl"
-                      placeholder="https://example.com/audio.mp3"
-                      value={audioUrl}
-                      onChange={(e) => {
-                        setAudioUrl(e.target.value)
-                        setAudioFile(null)
-                      }}
-                      className="mt-1"
-                    />
-                  </div>
-
-                  {/* Context */}
-                  <div>
-                    <Label htmlFor="context">上下文增强（可选）</Label>
-                    <Textarea
-                      id="context"
-                      placeholder="输入相关词汇或文本，可以提高识别准确率"
-                      value={context}
-                      onChange={(e) => setContext(e.target.value)}
-                      className="mt-1"
-                      rows={3}
-                    />
-                    <p className="text-xs text-gray-500 mt-1">
-                      可以输入热词列表、相关文本段落等，不超过 10000 Token
-                    </p>
-                  </div>
-
-                  {/* ITN and Language Options */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="flex items-center space-x-2">
-                      <Switch
-                        id="itn"
-                        checked={enableItn}
-                        onCheckedChange={setEnableItn}
-                      />
-                      <Label htmlFor="itn" className="text-sm">
-                        启用逆文本规范化 (ITN)
-                      </Label>
-                    </div>
+                  <TabsContent value="file" className="space-y-4">
                     <div>
-                      <Label htmlFor="language">识别语言（可选）</Label>
-                      <Select value={language} onValueChange={setLanguage}>
-                        <SelectTrigger className="mt-1">
-                          <SelectValue placeholder="自动检测" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="auto">自动检测</SelectItem>
-                          <SelectItem value="zh">中文</SelectItem>
-                          <SelectItem value="en">英文</SelectItem>
-                          <SelectItem value="ja">日语</SelectItem>
-                          <SelectItem value="de">德语</SelectItem>
-                          <SelectItem value="ko">韩语</SelectItem>
-                          <SelectItem value="ru">俄语</SelectItem>
-                          <SelectItem value="fr">法语</SelectItem>
-                          <SelectItem value="pt">葡萄牙语</SelectItem>
-                          <SelectItem value="ar">阿拉伯语</SelectItem>
-                          <SelectItem value="it">意大利语</SelectItem>
-                          <SelectItem value="es">西班牙语</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      <Label>音频文件</Label>
+                      <div
+                        className="mt-1 border-2 border-dashed border-gray-300 rounded-lg p-6 text-center cursor-pointer hover:border-gray-400 transition-colors"
+                        onDragOver={handleDragOver}
+                        onDrop={handleDrop}
+                        onClick={() => fileInputRef.current?.click()}
+                      >
+                        <input
+                          ref={fileInputRef}
+                          type="file"
+                          accept="audio/*,.aac,.amr,.avi,.aiff,.flac,.flv,.m4a,.mkv,.mp3,.mp4,.mpeg,.ogg,.opus,.wav,.webm,.wma,.wmv"
+                          onChange={handleFileSelect}
+                          className="hidden"
+                        />
+                        <Upload className="w-12 h-12 text-gray-400 mx-auto mb-2" />
+                        <p className="text-sm text-gray-600">
+                          点击或拖拽音频文件到此处
+                        </p>
+                        <p className="text-xs text-gray-500 mt-1">
+                          支持：aac, amr, avi, aiff, flac, flv, m4a, mkv, mp3, mp4, mpeg, ogg, opus, wav, webm, wma, wmv
+                        </p>
+                        {audioFile && (
+                          <p className="text-sm text-green-600 mt-2">
+                            已选择：{audioFile.name}
+                          </p>
+                        )}
+                      </div>
                     </div>
-                  </div>
+                  </TabsContent>
 
-                  {/* Streaming Option */}
+                  <TabsContent value="url" className="space-y-4">
+                    <div>
+                      <Label htmlFor="audioUrl">音频 URL</Label>
+                      <Input
+                        id="audioUrl"
+                        placeholder="https://example.com/audio.mp3"
+                        value={audioUrl}
+                        onChange={(e) => {
+                          setAudioUrl(e.target.value)
+                          setAudioFile(null)
+                        }}
+                        className="mt-1"
+                      />
+                    </div>
+                  </TabsContent>
+
+                  <TabsContent value="record" className="space-y-4">
+                    <VoiceRecorder
+                      onRecordingComplete={handleRecordingComplete}
+                      onError={handleRecordingError}
+                      disabled={loading || isStreaming}
+                    />
+                  </TabsContent>
+                </Tabs>
+
+                {/* Context */}
+                <div>
+                  <Label htmlFor="context">上下文增强（可选）</Label>
+                  <Textarea
+                    id="context"
+                    placeholder="输入相关词汇或文本，可以提高识别准确率"
+                    value={context}
+                    onChange={(e) => setContext(e.target.value)}
+                    className="mt-1"
+                    rows={3}
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    可以输入热词列表、相关文本段落等，不超过 10000 Token
+                  </p>
+                </div>
+
+                {/* ITN and Language Options */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="flex items-center space-x-2">
                     <Switch
-                      id="stream"
-                      checked={stream}
-                      onCheckedChange={setStream}
+                      id="itn"
+                      checked={enableItn}
+                      onCheckedChange={setEnableItn}
                     />
-                    <Label htmlFor="stream" className="text-sm">
-                      启用流式输出 (实时转录)
+                    <Label htmlFor="itn" className="text-sm">
+                      启用逆文本规范化 (ITN)
                     </Label>
                   </div>
-
-                  {enableItn && (
-                    <Alert>
-                      <AlertDescription>
-                        <strong>ITN 功能说明：</strong>启用逆文本规范化后，系统会将口语化的数字表达转换为标准格式，
-                        例如"一百二十三"转换为"123"，"二零二四年"转换为"2024年"等。
-                        目前仅支持中文和英文音频。
-                      </AlertDescription>
-                    </Alert>
-                  )}
+                  <div>
+                    <Label htmlFor="language">识别语言（可选）</Label>
+                    <Select value={language} onValueChange={setLanguage}>
+                      <SelectTrigger className="mt-1">
+                        <SelectValue placeholder="自动检测" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="auto">自动检测</SelectItem>
+                        <SelectItem value="zh">中文</SelectItem>
+                        <SelectItem value="en">英文</SelectItem>
+                        <SelectItem value="ja">日语</SelectItem>
+                        <SelectItem value="de">德语</SelectItem>
+                        <SelectItem value="ko">韩语</SelectItem>
+                        <SelectItem value="ru">俄语</SelectItem>
+                        <SelectItem value="fr">法语</SelectItem>
+                        <SelectItem value="pt">葡萄牙语</SelectItem>
+                        <SelectItem value="ar">阿拉伯语</SelectItem>
+                        <SelectItem value="it">意大利语</SelectItem>
+                        <SelectItem value="es">西班牙语</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
+
+                {/* Streaming Option */}
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    id="stream"
+                    checked={stream}
+                    onCheckedChange={setStream}
+                  />
+                  <Label htmlFor="stream" className="text-sm">
+                    启用流式输出 (实时转录)
+                  </Label>
+                </div>
+
+                {enableItn && (
+                  <Alert>
+                    <AlertDescription>
+                      <strong>ITN 功能说明：</strong>启用逆文本规范化后，系统会将口语化的数字表达转换为标准格式，
+                      例如"一百二十三"转换为"123"，"二零二四年"转换为"2024年"等。
+                      目前仅支持中文和英文音频。
+                    </AlertDescription>
+                  </Alert>
+                )}
               </CardContent>
             </Card>
 
