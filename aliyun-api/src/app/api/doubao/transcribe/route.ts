@@ -94,11 +94,13 @@ export async function POST(request: NextRequest) {
       throw new Error('Transcription process timeout - the audio processing took too long')
     }, 120000) // 2 minutes total timeout
 
+    // Initialize result variables outside try block to maintain scope
+    let finalText = ''
+    let finalLanguage: string | undefined
+    let finalConfidence: number | undefined
+
     try {
       console.log('Starting transcription streaming...')
-      let finalText = ''
-      let finalLanguage: string | undefined
-      let finalConfidence: number | undefined
 
       // 开始流式转录
       for await (const response of client.startStreaming(audioData)) {
