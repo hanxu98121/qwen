@@ -88,12 +88,18 @@ export async function POST(request: NextRequest) {
     console.log('Connecting to Doubao WebSocket...')
     await client.connect()
 
-    console.log('Starting transcription streaming...')
-    let finalText = ''
-    let finalLanguage: string | undefined
-    let finalConfidence: number | undefined
+    // Add overall timeout for the entire transcription process
+    const transcriptionTimeout = setTimeout(() => {
+      client.close()
+      throw new Error('Transcription process timeout - the audio processing took too long')
+    }, 120000) // 2 minutes total timeout
 
     try {
+      console.log('Starting transcription streaming...')
+      let finalText = ''
+      let finalLanguage: string | undefined
+      let finalConfidence: number | undefined
+
       // 开始流式转录
       for await (const response of client.startStreaming(audioData)) {
         console.log('Received response:', response.toDict())
@@ -124,6 +130,7 @@ export async function POST(request: NextRequest) {
       }
 
     } finally {
+      clearTimeout(transcriptionTimeout)
       client.close()
     }
 
@@ -147,6 +154,45 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     console.error('Doubao transcription error:', error)
+
+    // Handle specific timeout errors
+    if (error instanceof Error) {
+      if (error.message.includes('timeout') || error.message.includes('Timeout')) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'Request timeout. Please try again with a shorter audio file or check your network connection.',
+            details: `The transcription request timed out. This can happen with large audio files or slow network connections.`,
+            provider: 'doubao',
+            errorType: 'timeout'
+          },
+          {
+            status: 408, // Request Timeout
+            headers: {
+              'Access-Control-Allow-Origin': '*',
+            }
+          }
+        )
+      }
+
+      if (error.message.includes('Connection timeout') || error.message.includes('WebSocket')) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'Connection to Doubao service failed. Please check your API credentials and try again.',
+            details: `Unable to establish WebSocket connection to Doubao service. Please verify your App Key and Access Key are correct.`,
+            provider: 'doubao',
+            errorType: 'connection'
+          },
+          {
+            status: 503, // Service Unavailable
+            headers: {
+              'Access-Control-Allow-Origin': '*',
+            }
+          }
+        )
+      }
+    }
 
     const errorMessage = DoubaoUtilsServerless.formatError(error)
 

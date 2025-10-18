@@ -34,19 +34,33 @@ export class DoubaoWsClient {
 
     return new Promise((resolve, reject) => {
       try {
-        this.conn = new WebSocket(this.url, { headers })
+        this.conn = new WebSocket(this.url, {
+          headers,
+          handshakeTimeout: 30000
+        })
+
+        // Connection timeout
+        const connectionTimeout = setTimeout(() => {
+          if (this.conn && this.conn.readyState === WebSocket.CONNECTING) {
+            this.conn.terminate()
+            reject(new Error('Connection timeout'))
+          }
+        }, 30000)
 
         this.conn.on('open', () => {
+          clearTimeout(connectionTimeout)
           console.log(`Connected to ${this.url}`)
           resolve()
         })
 
         this.conn.on('error', (error) => {
+          clearTimeout(connectionTimeout)
           console.error('WebSocket error:', error)
           reject(error)
         })
 
         this.conn.on('close', () => {
+          clearTimeout(connectionTimeout)
           console.log('WebSocket connection closed')
         })
 
@@ -72,7 +86,7 @@ export class DoubaoWsClient {
 
       const timeout = setTimeout(() => {
         reject(new Error('Full request timeout'))
-      }, 10000)
+      }, 30000)
 
       const tempMessageHandler = async (data: Buffer) => {
         try {
@@ -163,7 +177,7 @@ export class DoubaoWsClient {
 
       const timeout = setTimeout(() => {
         reject(new Error('Response timeout'))
-      }, 5000)
+      }, 15000)
 
       const tempMessageHandler = async (data: Buffer) => {
         try {
