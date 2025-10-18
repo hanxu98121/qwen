@@ -447,6 +447,8 @@ export default function Home() {
                       onRecordingComplete={handleRecordingComplete}
                       onError={handleRecordingError}
                       disabled={loading || isStreaming}
+                      autoTranscribe={autoTranscribe}
+                      onAutoTranscribeChange={setAutoTranscribe}
                     />
                   </TabsContent>
                 </Tabs>
