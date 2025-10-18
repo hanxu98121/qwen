@@ -161,36 +161,67 @@ export class DoubaoUtilsServerless {
     try {
       console.log('Downloading audio from URL:', audioUrl)
 
+      // 验证URL格式
+      if (!audioUrl || !audioUrl.startsWith('http')) {
+        throw new Error('Invalid audio URL provided')
+      }
+
       // 直接下载到Buffer，不保存到文件系统
       const response = await fetch(audioUrl)
       if (!response.ok) {
-        throw new Error(`Failed to download audio: HTTP ${response.status}`)
+        throw new Error(`Failed to download audio: HTTP ${response.status} ${response.statusText}`)
       }
 
       const arrayBuffer = await response.arrayBuffer()
       let buffer = Buffer.from(arrayBuffer)
 
-      // 使用FFmpeg转换音频格式
-      try {
-        // 尝试设置FFmpeg（可能失败）
-        FFmpegConverter.setupFFmpeg();
-      } catch (error) {
-        console.log('FFmpeg not available, using original audio');
+      console.log(`Downloaded ${buffer.length} bytes, checking format...`)
+
+      // 验证音频文件有效性
+      if (buffer.length < 100) {
+        throw new Error('Downloaded audio file is too small to be valid')
       }
 
+      // 使用新的转换系统
       try {
-        // 转换为豆包兼容格式
+        console.log('Converting audio to Doubao format...');
         buffer = await FFmpegConverter.ensureDoubaoFormat(buffer);
         console.log(`Audio converted successfully (${buffer.length} bytes)`);
+
+        // 验证转换后的格式
+        const validation = this.validateWavFormat(buffer);
+        if (validation.isValid && !validation.needsConversion) {
+          console.log('Audio format validation passed');
+        } else {
+          console.warn('Audio format validation failed, but proceeding anyway');
+        }
+
       } catch (conversionError) {
-        console.warn('Audio conversion failed, using original:', conversionError);
-        // 如果转换失败，使用原始音频
+        console.error('Audio conversion failed:', conversionError);
+
+        // 提供更详细的错误信息
+        const errorMessage = conversionError instanceof Error ? conversionError.message : 'Unknown conversion error';
+        throw new Error(`Audio conversion failed: ${errorMessage}. Please ensure the audio file is in a supported format (MP3, WAV, M4A, FLAC) and try again.`);
       }
 
-      console.log(`Downloaded ${buffer.length} bytes from URL`)
+      console.log(`Final audio buffer size: ${buffer.length} bytes`)
       return buffer
     } catch (error) {
       console.error('Failed to download audio from URL:', error)
+
+      // 提供更友好的错误信息
+      if (error instanceof Error) {
+        if (error.message.includes('Failed to download')) {
+          throw new Error(`无法下载音频文件: ${error.message}. 请检查URL是否正确且可访问。`);
+        }
+        if (error.message.includes('Audio conversion failed')) {
+          throw new Error(`音频格式转换失败: ${error.message}. 请尝试使用WAV格式的音频文件。`);
+        }
+        if (error.message.includes('Invalid audio URL')) {
+          throw new Error(`无效的音频URL: ${audioUrl}. 请提供有效的HTTP或HTTPS链接。`);
+        }
+      }
+
       throw new Error(`从URL下载音频失败: ${error}`)
     }
   }
@@ -202,31 +233,77 @@ export class DoubaoUtilsServerless {
     try {
       console.log('Processing uploaded file:', audioFile.name)
 
+      // 验证文件
+      if (!audioFile || audioFile.size === 0) {
+        throw new Error('No audio file provided or file is empty')
+      }
+
+      // 检查文件大小限制 (10MB)
+      const maxSize = 10 * 1024 * 1024; // 10MB
+      if (audioFile.size > maxSize) {
+        throw new Error(`Audio file is too large. Maximum size is 10MB, got ${Math.round(audioFile.size / 1024 / 1024)}MB`)
+      }
+
+      // 检查文件类型
+      const supportedTypes = ['audio/mpeg', 'audio/wav', 'audio/wave', 'audio/x-wav', 'audio/mp4', 'audio/m4a', 'audio/flac', 'audio/x-flac'];
+      if (!supportedTypes.includes(audioFile.type) && !audioFile.name.match(/\.(mp3|wav|m4a|flac)$/i)) {
+        console.warn('Unsupported file type:', audioFile.type, 'but will attempt processing anyway');
+      }
+
       // 直接从File转换为Buffer，不保存到文件系统
       const arrayBuffer = await audioFile.arrayBuffer()
       let buffer = Buffer.from(arrayBuffer)
 
-      // 使用FFmpeg转换音频格式
-      try {
-        // 尝试设置FFmpeg（可能失败）
-        FFmpegConverter.setupFFmpeg();
-      } catch (error) {
-        console.log('FFmpeg not available, using original audio');
+      console.log(`Loaded ${buffer.length} bytes from ${audioFile.name}, checking format...`)
+
+      // 验证音频文件有效性
+      if (buffer.length < 100) {
+        throw new Error('Audio file is too small to be valid')
       }
 
+      // 使用新的转换系统
       try {
-        // 转换为豆包兼容格式
+        console.log('Converting audio to Doubao format...');
         buffer = await FFmpegConverter.ensureDoubaoFormat(buffer);
         console.log(`Audio converted successfully (${buffer.length} bytes)`);
+
+        // 验证转换后的格式
+        const validation = this.validateWavFormat(buffer);
+        if (validation.isValid && !validation.needsConversion) {
+          console.log('Audio format validation passed');
+        } else {
+          console.warn('Audio format validation failed, but proceeding anyway');
+        }
+
       } catch (conversionError) {
-        console.warn('Audio conversion failed, using original:', conversionError);
-        // 如果转换失败，使用原始音频
+        console.error('Audio conversion failed:', conversionError);
+
+        // 提供更详细的错误信息
+        const errorMessage = conversionError instanceof Error ? conversionError.message : 'Unknown conversion error';
+        throw new Error(`Audio conversion failed: ${errorMessage}. Please ensure the audio file is in a supported format (MP3, WAV, M4A, FLAC) and try again.`);
       }
 
-      console.log(`Processed ${buffer.length} bytes from uploaded file`)
+      console.log(`Final audio buffer size: ${buffer.length} bytes`)
       return buffer
     } catch (error) {
       console.error('Failed to process uploaded file:', error)
+
+      // 提供更友好的错误信息
+      if (error instanceof Error) {
+        if (error.message.includes('too large')) {
+          throw new Error(`文件过大: ${error.message}. 请使用小于10MB的音频文件。`);
+        }
+        if (error.message.includes('No audio file provided')) {
+          throw new Error(`未提供音频文件: ${error.message}. 请选择一个音频文件。`);
+        }
+        if (error.message.includes('Audio conversion failed')) {
+          throw new Error(`音频格式转换失败: ${error.message}. 请尝试使用WAV格式的音频文件。`);
+        }
+        if (error.message.includes('too small to be valid')) {
+          throw new Error(`音频文件无效: ${error.message}. 请选择一个有效的音频文件。`);
+        }
+      }
+
       throw new Error(`处理上传文件失败: ${error}`)
     }
   }
